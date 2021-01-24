@@ -1,0 +1,941 @@
+Présentation de l'exemple d'authentification JWT React Hooks
+Nous allons créer une application React Hooks en ceci:
+
+Il y a des pages de connexion / déconnexion, d'inscription.
+Les données du formulaire seront validées par le front-end avant d'être envoyées au back-end.
+En fonction des rôles de l'utilisateur (administrateur, modérateur, utilisateur), la barre de navigation modifie ses éléments automatiquement.
+Voici les captures d'écran:
+- Page d'inscription:
+
+react-hooks-authentication-authentication-jwt-signup
+
+- Support de validation de formulaire:
+
+réact-hooks-authentification-autorisation-jwt-validation
+
+- Page de connexion:
+
+réact-hooks-authentification-autorisation-jwt-login
+
+- Page de profil (pour une connexion réussie):
+
+réact-hooks-authentification-autorisation-jwt-profile-page
+
+- Pour la connexion au compte Moderator, la barre de navigation changera par les autorités:
+
+react-hooks-authentication-authorisation-jwt-based-role-login
+
+- Vérifiez le stockage local du navigateur:
+
+réact-hooks-authentification-autorisation-jwt-localstorage
+
+Enregistrement des utilisateurs et flux de connexion des utilisateurs
+Pour l'authentification JWT, nous allons appeler 2 points de terminaison:
+
+POST api/auth/signuppour l'enregistrement des utilisateurs
+POST api/auth/signinpour la connexion de l'utilisateur
+Le flux suivant vous montre un aperçu des demandes et des réponses que React Client fera ou recevra. Ce client React doit ajouter un JWT à l'en-tête HTTP avant d'envoyer la requête aux ressources protégées.
+
+réact-hooks-authentification-autorisation-jwt-flow
+
+
+
+Le projet React en vidéo utilise des composants React au lieu de React Hooks, mais le flux ou la structure est le même.
+
+Diagramme des composants de fonction React avec routeur, Axios et stockage local
+Regardons le diagramme ci-dessous.
+
+react-hooks-authentication-authorisation-jwt-project-overview
+
+- Le Appcomposant est un conteneur avec React Router ( BrowserRouter). En fonction de l'état, la barre de navigation peut afficher ses éléments.
+
+- Login& Registerpages ont un formulaire pour la soumission des données (avec le soutien de la react-validationbibliothèque). Ils appellent les méthodes de auth.servicepour faire une demande de connexion / d'enregistrement.
+
+- auth.serviceméthodes utilisées axiospour faire des requêtes HTTP. Il stocke ou récupère également JWT à partir du stockage local du navigateur dans ces méthodes.
+
+- La Homepage est publique pour tous les visiteurs.
+
+- La Profilepage affiche les informations de l'utilisateur une fois l'action de connexion réussie.
+
+- BoardUser, BoardModerator, les BoardAdminpages seront affichées par l' état user.roles. Dans ces pages, nous utilisons user.servicepour accéder aux ressources protégées de l'API Web.
+
+- user.serviceutilise la auth-header()fonction d'assistance pour ajouter JWT à l'en-tête HTTP. auth-header()renvoie un objet contenant le JWT de l'utilisateur actuellement connecté à partir du stockage local.
+
+La technologie
+Nous allons utiliser ces modules:
+
+Réagir 16
+react-router-dom 5.1.2
+axios 0.19.2
+réact-validation 3.0.7
+Bootstrap 4
+validateur 12.2.0
+Structure du projet
+Voici la structure des dossiers et fichiers pour cette application React:
+
+react-hooks-authentication-authorisation-jwt-project-structure
+
+Avec l'explication du diagramme ci-dessus, vous pouvez facilement comprendre la structure du projet.
+
+Configurer le projet d'authentification des Hooks React.js
+Ouvrez cmd dans le dossier dans lequel vous souhaitez enregistrer le dossier Projet, exécutez la commande:
+npx create-react-app react-hooks-jwt-auth
+
+Ajouter un routeur React
+- Exécutez la commande: npm install react-router-dom.
+- Ouvrez src / index.js et encapsulezApp composant par BrowserRouterobjet.
+
+import React from "react";
+import ReactDOM from "react-dom";
+import { BrowserRouter } from "react-router-dom";
+
+import App from "./App";
+import * as serviceWorker from "./serviceWorker";
+
+ReactDOM.render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>,
+  document.getElementById("root")
+);
+
+serviceWorker.unregister();
+Importer Bootstrap
+Exécuter la commande: npm install bootstrap.
+
+Ouvrez src / App.js et modifiez le code à l'intérieur comme suit:
+
+import React, { Component } from "react";
+import "bootstrap/dist/css/bootstrap.min.css";
+
+class App extends Component {
+  render() {
+    // ...
+  }
+}
+
+export default App;
+Créer des services
+Nous allons créer deux services dans le dossier src / services :
+
+Service d'authentification
+Service de données
+ prestations de service
+
+ auth-header.js
+
+auth.service.js (service d'authentification)
+
+user.service.js (service de données)
+
+Avant de travailler avec ces services, nous devons installer Axios avec la commande:
+npm install axios
+
+Service d'authentification
+Le service utilise Axios pour les requêtes HTTP et le stockage local pour les informations utilisateur et JWT.
+Il fournit les fonctions importantes suivantes:
+
+login(): POST {username, password} et enregistrer JWTdans le stockage local
+logout(): supprimer JWTdu stockage local
+register(): POST {nom d'utilisateur, email, mot de passe}
+getCurrentUser(): obtenir des informations utilisateur stockées (y compris JWT)
+services / auth.service.js
+
+import axios from "axios";
+
+const API_URL = "http://localhost:8080/api/auth/";
+
+const register = (username, email, password) => {
+  return axios.post(API_URL + "signup", {
+    username,
+    email,
+    password,
+  });
+};
+
+const login = (username, password) => {
+  return axios
+    .post(API_URL + "signin", {
+      username,
+      password,
+    })
+    .then((response) => {
+      if (response.data.accessToken) {
+        localStorage.setItem("user", JSON.stringify(response.data));
+      }
+
+      return response.data;
+    });
+};
+
+const logout = () => {
+  localStorage.removeItem("user");
+};
+
+const getCurrentUser = () => {
+  return JSON.parse(localStorage.getItem("user"));
+};
+
+export default {
+  register,
+  login,
+  logout,
+  getCurrentUser,
+};
+Service de données
+Nous avons également des méthodes pour récupérer les données du serveur. Dans le cas où nous accédons à des ressources protégées, la requête HTTP nécessite un en-tête Authorization.
+
+Créons une fonction d'assistance appelée authHeader()dans auth-header.js :
+
+export default function authHeader() {
+  const user = JSON.parse(localStorage.getItem('user'));
+
+  if (user && user.accessToken) {
+    return { Authorization: 'Bearer ' + user.accessToken };
+  } else {
+    return {};
+  }
+}
+Le code ci-dessus vérifie le stockage local pour l' userarticle. S'il y a un connecté useravec accessToken(JWT), renvoyez l'en-tête HTTP Authorization. Sinon, retournez un objet vide.
+
+Remarque: pour le back-end Node.js Express, veuillez utiliser l'en - tête x-access-token comme ceci:
+
+export default function authHeader() {
+  const user = JSON.parse(localStorage.getItem('user'));
+
+  if (user && user.accessToken) {
+    // for Node.js Express back-end
+    return { 'x-access-token': user.accessToken };
+  } else {
+    return {};
+  }
+}
+Nous définissons maintenant un service pour accéder aux données dans services / user.service.js :
+
+import axios from "axios";
+import authHeader from "./auth-header";
+
+const API_URL = "http://localhost:8080/api/test/";
+
+const getPublicContent = () => {
+  return axios.get(API_URL + "all");
+};
+
+const getUserBoard = () => {
+  return axios.get(API_URL + "user", { headers: authHeader() });
+};
+
+const getModeratorBoard = () => {
+  return axios.get(API_URL + "mod", { headers: authHeader() });
+};
+
+const getAdminBoard = () => {
+  return axios.get(API_URL + "admin", { headers: authHeader() });
+};
+
+export default {
+  getPublicContent,
+  getUserBoard,
+  getModeratorBoard,
+  getAdminBoard,
+};
+Vous pouvez voir que nous ajoutons un en-tête HTTP à l'aide de la authHeader()fonction lors de la demande de ressource autorisée.
+
+Créer des pages de réaction pour l'authentification
+Dans le dossier src , créez un nouveau dossier nommé components et ajoutez plusieurs fichiers comme suit:
+
+ Composants
+
+ Login.js
+
+ Register.js
+
+ Profile.js
+
+Présentation de la validation de formulaire
+Maintenant, nous avons besoin d'une bibliothèque pour la validation de formulaire, nous allons donc ajouter une bibliothèque de validation de réaction à notre projet.
+Exécutez la commande:npm install react-validation validator
+
+Pour utiliser react-validation dans cet exemple, vous devez importer les éléments suivants:
+
+import Form from "react-validation/build/form";
+import Input from "react-validation/build/input";
+import CheckButton from "react-validation/build/button";
+
+import { isEmail } from "validator";
+Nous utilisons également la isEmail()fonction du validateur pour vérifier les e-mails.
+
+Voici comment nous les mettons en render()méthode avec validationsattribut:
+
+const required = value => {
+  if (!value) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        This field is required!
+      </div>
+    );
+  }
+};
+
+const email = value => {
+  if (!isEmail(value)) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        This is not a valid email.
+      </div>
+    );
+  }
+};
+
+render() {
+  return (
+  ...
+    <Form
+      onSubmit={handleLogin}
+      ref={form}
+    >
+      ...
+      <Input
+        type="text"
+        className="form-control"
+        ...
+        validations={[required, email]}
+      />
+
+      <CheckButton
+        style={{ display: "none" }}
+        ref={checkBtn}
+      />
+    </Form>
+  ...
+  );
+}
+Nous allons appeler la validateAll()méthode Form pour vérifier les fonctions de validation validations. Puis CheckButtonnous aide à vérifier si la validation du formulaire est réussie ou non. Donc, ce bouton ne s'affichera pas sur le formulaire.
+
+form.validateAll();
+
+if (checkBtn.context._errors.length === 0) {
+  // do something when no error
+}
+Page de connexion
+Cette page a un formulaire avec username& password.
+- Nous allons les vérifier comme champ obligatoire .
+- Si la vérification est correcte, nous appelons la AuthService.login()méthode, puis dirigons l'utilisateur vers la page de profil :, props.history.push("/profile");ou montrons messageavec une erreur de réponse.
+
+composants / Login.js
+
+import React, { useState, useRef } from "react";
+import Form from "react-validation/build/form";
+import Input from "react-validation/build/input";
+import CheckButton from "react-validation/build/button";
+
+import AuthService from "../services/auth.service";
+
+const required = (value) => {
+  if (!value) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        This field is required!
+      </div>
+    );
+  }
+};
+
+const Login = (props) => {
+  const form = useRef();
+  const checkBtn = useRef();
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const onChangeUsername = (e) => {
+    const username = e.target.value;
+    setUsername(username);
+  };
+
+  const onChangePassword = (e) => {
+    const password = e.target.value;
+    setPassword(password);
+  };
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+
+    setMessage("");
+    setLoading(true);
+
+    form.current.validateAll();
+
+    if (checkBtn.current.context._errors.length === 0) {
+      AuthService.login(username, password).then(
+        () => {
+          props.history.push("/profile");
+          window.location.reload();
+        },
+        (error) => {
+          const resMessage =
+            (error.response &&
+              error.response.data &&
+              error.response.data.message) ||
+            error.message ||
+            error.toString();
+
+          setLoading(false);
+          setMessage(resMessage);
+        }
+      );
+    } else {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="col-md-12">
+      <div className="card card-container">
+        <img
+          src="//ssl.gstatic.com/accounts/ui/avatar_2x.png"
+          alt="profile-img"
+          className="profile-img-card"
+        />
+
+        <Form onSubmit={handleLogin} ref={form}>
+          <div className="form-group">
+            <label htmlFor="username">Username</label>
+            <Input
+              type="text"
+              className="form-control"
+              name="username"
+              value={username}
+              onChange={onChangeUsername}
+              validations={[required]}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <Input
+              type="password"
+              className="form-control"
+              name="password"
+              value={password}
+              onChange={onChangePassword}
+              validations={[required]}
+            />
+          </div>
+
+          <div className="form-group">
+            <button className="btn btn-primary btn-block" disabled={loading}>
+              {loading && (
+                <span className="spinner-border spinner-border-sm"></span>
+              )}
+              <span>Login</span>
+            </button>
+          </div>
+
+          {message && (
+            <div className="form-group">
+              <div className="alert alert-danger" role="alert">
+                {message}
+              </div>
+            </div>
+          )}
+          <CheckButton style={{ display: "none" }} ref={checkBtn} />
+        </Form>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+Page d'inscription
+Cette page est similaire à la page de connexion .
+
+Pour la validation de formulaire, il y a quelques détails supplémentaires:
+
+username: obligatoire, entre 3 et 20 caractères
+email: obligatoire, format e-mail
+password: obligatoire, entre 6 et 40 caractères
+Nous allons appeler la AuthService.register()méthode et afficher le message de réponse (succès ou erreur).
+
+composants / Register.js
+
+import React, { useState, useRef } from "react";
+import Form from "react-validation/build/form";
+import Input from "react-validation/build/input";
+import CheckButton from "react-validation/build/button";
+import { isEmail } from "validator";
+
+import AuthService from "../services/auth.service";
+
+const required = (value) => {
+  if (!value) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        This field is required!
+      </div>
+    );
+  }
+};
+
+const validEmail = (value) => {
+  if (!isEmail(value)) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        This is not a valid email.
+      </div>
+    );
+  }
+};
+
+const vusername = (value) => {
+  if (value.length < 3 || value.length > 20) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        The username must be between 3 and 20 characters.
+      </div>
+    );
+  }
+};
+
+const vpassword = (value) => {
+  if (value.length < 6 || value.length > 40) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        The password must be between 6 and 40 characters.
+      </div>
+    );
+  }
+};
+
+const Register = (props) => {
+  const form = useRef();
+  const checkBtn = useRef();
+
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [successful, setSuccessful] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const onChangeUsername = (e) => {
+    const username = e.target.value;
+    setUsername(username);
+  };
+
+  const onChangeEmail = (e) => {
+    const email = e.target.value;
+    setEmail(email);
+  };
+
+  const onChangePassword = (e) => {
+    const password = e.target.value;
+    setPassword(password);
+  };
+
+  const handleRegister = (e) => {
+    e.preventDefault();
+
+    setMessage("");
+    setSuccessful(false);
+
+    form.current.validateAll();
+
+    if (checkBtn.current.context._errors.length === 0) {
+      AuthService.register(username, email, password).then(
+        (response) => {
+          setMessage(response.data.message);
+          setSuccessful(true);
+        },
+        (error) => {
+          const resMessage =
+            (error.response &&
+              error.response.data &&
+              error.response.data.message) ||
+            error.message ||
+            error.toString();
+
+          setMessage(resMessage);
+          setSuccessful(false);
+        }
+      );
+    }
+  };
+
+  return (
+    <div className="col-md-12">
+      <div className="card card-container">
+        <img
+          src="//ssl.gstatic.com/accounts/ui/avatar_2x.png"
+          alt="profile-img"
+          className="profile-img-card"
+        />
+
+        <Form onSubmit={handleRegister} ref={form}>
+          {!successful && (
+            <div>
+              <div className="form-group">
+                <label htmlFor="username">Username</label>
+                <Input
+                  type="text"
+                  className="form-control"
+                  name="username"
+                  value={username}
+                  onChange={onChangeUsername}
+                  validations={[required, vusername]}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="email">Email</label>
+                <Input
+                  type="text"
+                  className="form-control"
+                  name="email"
+                  value={email}
+                  onChange={onChangeEmail}
+                  validations={[required, validEmail]}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <Input
+                  type="password"
+                  className="form-control"
+                  name="password"
+                  value={password}
+                  onChange={onChangePassword}
+                  validations={[required, vpassword]}
+                />
+              </div>
+
+              <div className="form-group">
+                <button className="btn btn-primary btn-block">Sign Up</button>
+              </div>
+            </div>
+          )}
+
+          {message && (
+            <div className="form-group">
+              <div
+                className={ successful ? "alert alert-success" : "alert alert-danger" }
+                role="alert"
+              >
+                {message}
+              </div>
+            </div>
+          )}
+          <CheckButton style={{ display: "none" }} ref={checkBtn} />
+        </Form>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
+Page de profil
+Cette page obtient l'utilisateur actuel du stockage local en appelant la AuthService.getCurrentUser()méthode et en affichant les informations utilisateur (avec le jeton).
+
+composants / Profile.js
+
+import React from "react";
+import AuthService from "../services/auth.service";
+
+const Profile = () => {
+  const currentUser = AuthService.getCurrentUser();
+
+  return (
+    <div className="container">
+      <header className="jumbotron">
+        <h3>
+          <strong>{currentUser.username}</strong> Profile
+        </h3>
+      </header>
+      <p>
+        <strong>Token:</strong> {currentUser.accessToken.substring(0, 20)} ...{" "}
+        {currentUser.accessToken.substr(currentUser.accessToken.length - 20)}
+      </p>
+      <p>
+        <strong>Id:</strong> {currentUser.id}
+      </p>
+      <p>
+        <strong>Email:</strong> {currentUser.email}
+      </p>
+      <strong>Authorities:</strong>
+      <ul>
+        {currentUser.roles &&
+          currentUser.roles.map((role, index) => <li key={index}>{role}</li>)}
+      </ul>
+    </div>
+  );
+};
+
+export default Profile;
+Créer des pages de réaction pour accéder aux ressources
+Ces pages seront utilisées UserServicepour demander des données à l'API.
+
+ Composants
+
+ Home.js
+
+ BoardUser.js
+
+ BoardModerator.js
+
+ BoardAdmin.js
+
+Page d'accueil
+Ceci est une page publique qui affiche du contenu public. Les gens n'ont pas besoin de se connecter pour voir cette page.
+
+composants / Home.js
+
+import React, { useState, useEffect } from "react";
+
+import UserService from "../services/user.service";
+
+const Home = () => {
+  const [content, setContent] = useState("");
+
+  useEffect(() => {
+    UserService.getPublicContent().then(
+      (response) => {
+        setContent(response.data);
+      },
+      (error) => {
+        const _content =
+          (error.response && error.response.data) ||
+          error.message ||
+          error.toString();
+
+        setContent(_content);
+      }
+    );
+  }, []);
+
+  return (
+    <div className="container">
+      <header className="jumbotron">
+        <h3>{content}</h3>
+      </header>
+    </div>
+  );
+};
+
+export default Home;
+Pages basées sur les rôles
+Nous allons avoir 3 pages pour accéder aux données protégées:
+
+Appels à la page BoardUserUserService.getUserBoard()
+Appels de page BoardModeratorUserService.getModeratorBoard()
+Appels de la page BoardAdminUserService.getAdminBoard()
+Je vais vous montrer la page utilisateur par exemple, les autres pages sont similaires à cette page.
+
+composants / BoardUser.js
+
+import React, { useState, useEffect } from "react";
+
+import UserService from "../services/user.service";
+
+const BoardUser = () => {
+  const [content, setContent] = useState("");
+
+  useEffect(() => {
+    UserService.getUserBoard().then(
+      (response) => {
+        setContent(response.data);
+      },
+      (error) => {
+        const _content =
+          (error.response &&
+            error.response.data &&
+            error.response.data.message) ||
+          error.message ||
+          error.toString();
+
+        setContent(_content);
+      }
+    );
+  }, []);
+
+  return (
+    <div className="container">
+      <header className="jumbotron">
+        <h3>{content}</h3>
+      </header>
+    </div>
+  );
+};
+
+export default BoardUser;
+Ajouter une barre de navigation et définir des itinéraires
+Maintenant, nous ajoutons une barre de navigation dans le Appcomposant. Il s'agit du conteneur racine de notre application.
+La barre de navigation change dynamiquement en fonction de l'état de connexion et des rôles de l'utilisateur actuel.
+
+À la maison : toujours
+Connexion et inscription : si l'utilisateur ne s'est pas encore connecté
+Utilisateur : AuthService.getCurrentUser()renvoie une valeur
+Modérateur du conseil : les rôles incluentROLE_MODERATOR
+Administrateur du conseil : les rôles incluentROLE_ADMIN
+App.js
+
+import React, { useState, useEffect } from "react";
+import { Switch, Route, Link } from "react-router-dom";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "./App.css";
+
+import AuthService from "./services/auth.service";
+
+import Login from "./components/Login";
+import Register from "./components/Register";
+import Home from "./components/Home";
+import Profile from "./components/Profile";
+import BoardUser from "./components/BoardUser";
+import BoardModerator from "./components/BoardModerator";
+import BoardAdmin from "./components/BoardAdmin";
+
+const App = () => {
+  const [showModeratorBoard, setShowModeratorBoard] = useState(false);
+  const [showAdminBoard, setShowAdminBoard] = useState(false);
+  const [currentUser, setCurrentUser] = useState(undefined);
+
+  useEffect(() => {
+    const user = AuthService.getCurrentUser();
+
+    if (user) {
+      setCurrentUser(user);
+      setShowModeratorBoard(user.roles.includes("ROLE_MODERATOR"));
+      setShowAdminBoard(user.roles.includes("ROLE_ADMIN"));
+    }
+  }, []);
+
+  const logOut = () => {
+    AuthService.logout();
+  };
+
+  return (
+    <div>
+      <nav className="navbar navbar-expand navbar-dark bg-dark">
+        <Link to={"/"} className="navbar-brand">
+          bezKoder
+        </Link>
+        <div className="navbar-nav mr-auto">
+          <li className="nav-item">
+            <Link to={"/home"} className="nav-link">
+              Home
+            </Link>
+          </li>
+
+          {showModeratorBoard && (
+            <li className="nav-item">
+              <Link to={"/mod"} className="nav-link">
+                Moderator Board
+              </Link>
+            </li>
+          )}
+
+          {showAdminBoard && (
+            <li className="nav-item">
+              <Link to={"/admin"} className="nav-link">
+                Admin Board
+              </Link>
+            </li>
+          )}
+
+          {currentUser && (
+            <li className="nav-item">
+              <Link to={"/user"} className="nav-link">
+                User
+              </Link>
+            </li>
+          )}
+        </div>
+
+        {currentUser ? (
+          <div className="navbar-nav ml-auto">
+            <li className="nav-item">
+              <Link to={"/profile"} className="nav-link">
+                {currentUser.username}
+              </Link>
+            </li>
+            <li className="nav-item">
+              <a href="/login" className="nav-link" onClick={logOut}>
+                LogOut
+              </a>
+            </li>
+          </div>
+        ) : (
+          <div className="navbar-nav ml-auto">
+            <li className="nav-item">
+              <Link to={"/login"} className="nav-link">
+                Login
+              </Link>
+            </li>
+
+            <li className="nav-item">
+              <Link to={"/register"} className="nav-link">
+                Sign Up
+              </Link>
+            </li>
+          </div>
+        )}
+      </nav>
+
+      <div className="container mt-3">
+        <Switch>
+          <Route exact path={["/", "/home"]} component={Home} />
+          <Route exact path="/login" component={Login} />
+          <Route exact path="/register" component={Register} />
+          <Route exact path="/profile" component={Profile} />
+          <Route path="/user" component={BoardUser} />
+          <Route path="/mod" component={BoardModerator} />
+          <Route path="/admin" component={BoardAdmin} />
+        </Switch>
+      </div>
+    </div>
+  );
+};
+
+export default App;
+Ajouter un style CSS pour les pages React
+Ouvrez src / App.css et écrivez du code CSS comme suit:
+
+label {
+  display: block;
+  margin-top: 10px;
+}
+
+.card-container.card {
+  max-width: 350px !important;
+  padding: 40px 40px;
+}
+
+.card {
+  background-color: #f7f7f7;
+  padding: 20px 25px 30px;
+  margin: 0 auto 25px;
+  margin-top: 50px;
+  -moz-border-radius: 2px;
+  -webkit-border-radius: 2px;
+  border-radius: 2px;
+  -moz-box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+  -webkit-box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+}
+
+.profile-img-card {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 10px;
+  display: block;
+  -moz-border-radius: 50%;
+  -webkit-border-radius: 50%;
+  border-radius: 50%;
+}
+Configurer le port pour le client d'authentification JWT de React Hooks avec l'API Web
+Étant donné que la plupart des serveurs HTTP utilisent la configuration CORS qui accepte le partage de ressources restreint à certains sites ou ports, nous devons également configurer le port pour notre application.
+
+Dans le dossier du projet, créez un fichier .env avec le contenu suivant:
+
+PORT=8081
